@@ -192,3 +192,6 @@ sphinx_*/
 # Generated build files
 /out
 /build
+
+# Let us add workflow files
+!/.github

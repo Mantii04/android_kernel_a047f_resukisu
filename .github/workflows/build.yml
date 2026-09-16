@@ -1,0 +1,61 @@
+name: Kernel build CI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+
+    - name: Restore cached clang
+      id: clang-cache-restore
+      uses: actions/cache/restore@v6
+      with:
+        path: toolchain
+        key: ${{ runner.os }}-clang
+
+    - name: Clone aosp clang
+      if: steps.clang-cache-restore.outputs.cache-hit != 'true'
+      run: |
+        git clone --filter=blob:none --no-checkout --sparse --depth=1 https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/ toolchain
+        pushd toolchain
+        git sparse-checkout set clang-r596125
+        git checkout
+        popd
+
+    - name: Save clang to cache
+      id: clang-cache-save
+      if: steps.clang-cache-restore.outputs.cache-hit != 'true' # Since clang is rarely get updated we left it cached.
+      uses: actions/cache/save@v6
+      with:
+        path: toolchain
+        key: ${{ runner.os }}-clang
+
+    - name: Create environment
+      run: |
+        echo "${{ github.workspace }}/toolchain/clang-r596125/bin/" >> $GITHUB_PATH
+        sudo apt update
+        sudo apt-get install -y git-core gnupg flex bc bison build-essential zip curl cpio zlib1g-dev libc6-dev-i386 x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig
+
+    - name: Configure and make
+      run: |
+        mkdir -p out
+        ./scripts/kconfig/merge_config.sh -O out/ -m arch/arm64/configs/exynos850-a04sxx_defconfig arch/arm64/configs/lesdieuxx.config
+        make ARCH=arm64 LLVM=1 O=out olddefconfig
+        make ARCH=arm64 LLVM=1 O=out -j$(nproc)
+
+    - name: Create AnyKernel3 archive
+      run: |
+        pushd AnyKernel3
+        cp ../out/arch/arm64/boot/Image .
+        zip -r9 A04s-AnyKernel3.zip * -x .git README.md *placeholder
+        popd
+
+    - uses: actions/upload-artifact@v7
+      with:
+        path: AnyKernel3/A04s-AnyKernel3.zip
+        archive: false
