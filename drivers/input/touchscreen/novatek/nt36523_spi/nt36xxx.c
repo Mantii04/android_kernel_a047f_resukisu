@@ -2579,7 +2579,7 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 		ret = wait_for_completion_interruptible_timeout(&ts->resume_done, msecs_to_jiffies(500));
 		if (ret == 0) {
 			input_err(true, &ts->client->dev, "%s: LPM: pm resume is not handled\n", __func__);
-			return SEC_ERROR;
+			return -1;
 		}
 
 		if (ret < 0) {
@@ -3605,7 +3605,7 @@ int nvt_ts_lcd_power_ctrl(bool on)
 	return 0;
 }
 
-bool nvt_ts_lcd_power_check()
+bool nvt_ts_lcd_power_check(void)
 {
 	int enabled_count = 0, regulator_count = 0;
 
