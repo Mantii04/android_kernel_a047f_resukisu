@@ -4,7 +4,7 @@ Source is based on `SC` binary kernel.
 
 # Download
 
-Get them from [releases](https://github.com/lesdieuxx/android_kernel_a047f_resukisu/releases).
+Get them from [releases](https://github.com/lesdieuxx/android_kernel_a047f_resukisu/releases) or from the latest [Kernel build CI](https://github.com/lesdieuxx/android_kernel_a047f_resukisu/actions).
 
 # Flashing
 
