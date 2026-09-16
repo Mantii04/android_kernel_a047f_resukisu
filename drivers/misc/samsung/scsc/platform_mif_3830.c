@@ -567,7 +567,11 @@ irqreturn_t platform_mif_isr(int irq, void *data)
 {
 	struct platform_mif *platform = (struct platform_mif *)data;
 
+#ifdef CONFIG_SCSC_WLBT_PTR_PRINT
 	SCSC_TAG_DEBUG_DEV(PLAT_MIF, platform->dev, "INT %pS\n", platform->r4_handler);
+#else
+	SCSC_TAG_DEBUG_DEV(PLAT_MIF, platform->dev, "INT\n");
+#endif
 	if (platform->r4_handler != platform_mif_irq_default_handler)
 		platform->r4_handler(irq, platform->irq_dev);
 	else
@@ -1424,7 +1428,11 @@ static void *platform_mif_map(struct scsc_mif_abs *interface, size_t *allocated)
 		return NULL;
 	}
 
+#ifdef CONFIG_SCSC_WLBT_PTR_PRINT
 	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Map: virt %p phys %lx\n", platform->mem, (uintptr_t)platform->mem_start);
+#else
+	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Mapping the shared memory\n");
+#endif
 
 	/* Initialise MIF registers with documented defaults */
 	/* MBOXes */
@@ -1447,7 +1455,11 @@ static void *platform_mif_map(struct scsc_mif_abs *interface, size_t *allocated)
 #endif
 	/* register interrupts */
 	if (platform_mif_register_irq(platform)) {
+#ifdef CONFIG_SCSC_WLBT_PTR_PRINT
 		SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Unmap: virt %p phys %lx\n", platform->mem, (uintptr_t)platform->mem_start);
+#else
+		SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Unmapping the shared memory\n");
+#endif
 		platform_mif_unmap_region(platform->mem);
 		return NULL;
 	}
@@ -1481,7 +1493,11 @@ static void platform_mif_unmap(struct scsc_mif_abs *interface, void *mem)
 	/* CRs */ /* 1's - clear all the interrupts */
 	platform_mif_reg_write(platform, MAILBOX_WLBT_REG(INTCR0), 0xffff0000);
 	platform_mif_reg_write(platform, MAILBOX_WLBT_REG(INTCR1), 0x0000ffff);
+#ifdef CONFIG_SCSC_WLBT_PTR_PRINT
 	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Unmap: virt %p phys %lx\n", platform->mem, (uintptr_t)platform->mem_start);
+#else
+	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Unmapping the shared memory\n");
+#endif
 	platform_mif_unmap_region(platform->mem);
 	platform->mem = NULL;
 }
@@ -1602,7 +1618,11 @@ static void platform_mif_irq_reg_handler(struct scsc_mif_abs *interface, void (*
 	struct platform_mif *platform = platform_mif_from_mif_abs(interface);
 	unsigned long       flags;
 
+#ifdef CONFIG_SCSC_WLBT_PTR_PRINT
 	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Registering mif int handler %pS in %p %p\n", handler, platform, interface);
+#else
+	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Registering mif int handler\n");
+#endif
 	spin_lock_irqsave(&platform->mif_spinlock, flags);
 	platform->r4_handler = handler;
 	platform->irq_dev = dev;
@@ -1614,7 +1634,11 @@ static void platform_mif_irq_unreg_handler(struct scsc_mif_abs *interface)
 	struct platform_mif *platform = platform_mif_from_mif_abs(interface);
 	unsigned long       flags;
 
+#ifdef CONFIG_SCSC_WLBT_PTR_PRINT
 	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Unregistering mif int handler %pS\n", interface);
+#else
+	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Unregistering mif int handler\n");
+#endif
 	spin_lock_irqsave(&platform->mif_spinlock, flags);
 	platform->r4_handler = platform_mif_irq_default_handler;
 	platform->irq_dev = NULL;
@@ -1625,7 +1649,11 @@ static void platform_mif_irq_reg_reset_request_handler(struct scsc_mif_abs *inte
 {
 	struct platform_mif *platform = platform_mif_from_mif_abs(interface);
 
+#ifdef CONFIG_SCSC_WLBT_PTR_PRINT
 	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Registering mif reset_request int handler %pS in %p %p\n", handler, platform, interface);
+#else
+	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Registering mif reset_request int handler\n");
+#endif
 	platform->reset_request_handler = handler;
 	platform->irq_reset_request_dev = dev;
 	if (atomic_read(&platform->wlbt_irq[PLATFORM_MIF_WDOG].irq_disabled_cnt)) {
@@ -1640,7 +1668,11 @@ static void platform_mif_irq_unreg_reset_request_handler(struct scsc_mif_abs *in
 {
 	struct platform_mif *platform = platform_mif_from_mif_abs(interface);
 
+#ifdef CONFIG_SCSC_WLBT_PTR_PRINT
 	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "UnRegistering mif reset_request int handler %pS\n", interface);
+#else
+	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "UnRegistering mif reset_request int handler\n");
+#endif
 	platform->reset_request_handler = platform_mif_irq_reset_request_default_handler;
 	platform->irq_reset_request_dev = NULL;
 }
@@ -1652,7 +1684,11 @@ static void platform_mif_suspend_reg_handler(struct scsc_mif_abs *interface,
 {
 	struct platform_mif *platform = platform_mif_from_mif_abs(interface);
 
+#ifdef CONFIG_SCSC_WLBT_PTR_PRINT
 	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Registering mif suspend/resume handlers in %p %p\n", platform, interface);
+#else
+	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Registering mif suspend/resume handlers\n");
+#endif
 	platform->suspend_handler = suspend;
 	platform->resume_handler = resume;
 	platform->suspendresume_data = data;
@@ -1662,7 +1698,11 @@ static void platform_mif_suspend_unreg_handler(struct scsc_mif_abs *interface)
 {
 	struct platform_mif *platform = platform_mif_from_mif_abs(interface);
 
+#ifdef CONFIG_SCSC_WLBT_PTR_PRINT
 	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Unregistering mif suspend/resume handlers in %p %p\n", platform, interface);
+#else
+	SCSC_TAG_INFO_DEV(PLAT_MIF, platform->dev, "Unregistering mif suspend/resume handlers\n");
+#endif
 	platform->suspend_handler = NULL;
 	platform->resume_handler = NULL;
 	platform->suspendresume_data = NULL;

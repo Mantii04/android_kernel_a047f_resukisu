@@ -479,6 +479,8 @@ static int slsi_nan_get_security_info_nl(struct slsi_dev *sdev, struct slsi_nan_
 			return -EINVAL;
 		break;
 	case NAN_REQ_ATTR_SECURITY_PASSPHRASE:
+		if (sec_info->key_info.body.passphrase_info.passphrase_len > SLSI_NAN_SECURITY_MAX_PASSPHRASE_LEN)
+			return -EINVAL;
 		if (slsi_util_nla_get_data(iter, sec_info->key_info.body.passphrase_info.passphrase_len,
 					   sec_info->key_info.body.passphrase_info.passphrase))
 			return -EINVAL;
@@ -978,6 +980,8 @@ static int slsi_nan_publish_get_nl_params(struct slsi_dev *sdev, struct slsi_hal
 			break;
 
 		case NAN_REQ_ATTR_PUBLISH_SERVICE_NAME:
+			if (hal_req->service_name_len > SLSI_HAL_NAN_MAX_SERVICE_NAME_LEN)
+				return -EINVAL;
 			if (slsi_util_nla_get_data(iter, hal_req->service_name_len, hal_req->service_name)) {
 				SLSI_ERR(sdev, "Returning EINVAL TYPE:%d\n", type);
 				return -EINVAL;
@@ -999,7 +1003,7 @@ static int slsi_nan_publish_get_nl_params(struct slsi_dev *sdev, struct slsi_hal
 			break;
 
 		case NAN_REQ_ATTR_PUBLISH_SERVICE_INFO:
-			if (hal_req->sdea_service_specific_info_len > SLSI_HAL_NAN_MAX_SDEA_SERVICE_SPEC_INFO_LEN)
+			if (hal_req->service_specific_info_len > SLSI_HAL_NAN_MAX_SERVICE_SPECIFIC_INFO_LEN)
 				return -EINVAL;
 			slsi_util_nla_get_data(iter, hal_req->service_specific_info_len,
 					       hal_req->service_specific_info);
@@ -1013,6 +1017,8 @@ static int slsi_nan_publish_get_nl_params(struct slsi_dev *sdev, struct slsi_hal
 			break;
 
 		case NAN_REQ_ATTR_PUBLISH_RX_MATCH_FILTER:
+			if (hal_req->rx_match_filter_len > SLSI_HAL_NAN_MAX_MATCH_FILTER_LEN)
+				return -EINVAL;
 			if (slsi_util_nla_get_data(iter,  hal_req->rx_match_filter_len, hal_req->rx_match_filter)) {
 				SLSI_ERR(sdev, "Returning EINVAL TYPE:%d\n", type);
 				return -EINVAL;
@@ -1027,6 +1033,8 @@ static int slsi_nan_publish_get_nl_params(struct slsi_dev *sdev, struct slsi_hal
 			break;
 
 		case NAN_REQ_ATTR_PUBLISH_TX_MATCH_FILTER:
+			if (hal_req->tx_match_filter_len > SLSI_HAL_NAN_MAX_MATCH_FILTER_LEN)
+				return -EINVAL;
 			if (slsi_util_nla_get_data(iter, hal_req->tx_match_filter_len, hal_req->tx_match_filter)) {
 				SLSI_ERR(sdev, "Returning EINVAL TYPE:%d\n", type);
 				return -EINVAL;
@@ -1062,6 +1070,8 @@ static int slsi_nan_publish_get_nl_params(struct slsi_dev *sdev, struct slsi_hal
 			break;
 
 		case NAN_REQ_ATTR_PUBLISH_SDEA:
+			if (hal_req->sdea_service_specific_info_len > SLSI_HAL_NAN_MAX_SDEA_SERVICE_SPEC_INFO_LEN)
+				return -EINVAL;
 			if (slsi_util_nla_get_data(iter, hal_req->sdea_service_specific_info_len, hal_req->sdea_service_specific_info)) {
 				SLSI_ERR(sdev, "Returning EINVAL TYPE:%d\n", type);
 				return -EINVAL;
@@ -1305,6 +1315,8 @@ static int slsi_nan_subscribe_get_nl_params(struct slsi_dev *sdev, struct slsi_h
 			break;
 
 		case NAN_REQ_ATTR_SUBSCRIBE_SERVICE_NAME:
+			if (hal_req->service_name_len > SLSI_HAL_NAN_MAX_SERVICE_NAME_LEN)
+				return -EINVAL;
 			if (slsi_util_nla_get_data(iter, hal_req->service_name_len, hal_req->service_name))
 				return -EINVAL;
 			break;
@@ -1315,6 +1327,8 @@ static int slsi_nan_subscribe_get_nl_params(struct slsi_dev *sdev, struct slsi_h
 			break;
 
 		case NAN_REQ_ATTR_SUBSCRIBE_SERVICE_INFO:
+			if (hal_req->service_specific_info_len > SLSI_HAL_NAN_MAX_SERVICE_SPECIFIC_INFO_LEN)
+				return -EINVAL;
 			if (slsi_util_nla_get_data(iter, hal_req->service_specific_info_len, hal_req->service_specific_info))
 				return -EINVAL;
 			break;
@@ -1336,6 +1350,8 @@ static int slsi_nan_subscribe_get_nl_params(struct slsi_dev *sdev, struct slsi_h
 			break;
 
 		case NAN_REQ_ATTR_SUBSCRIBE_TX_MATCH_FILTER:
+			if (hal_req->tx_match_filter_len > SLSI_HAL_NAN_MAX_MATCH_FILTER_LEN)
+				return -EINVAL;
 			if (slsi_util_nla_get_data(iter, hal_req->tx_match_filter_len, hal_req->tx_match_filter))
 				return -EINVAL;
 			break;
@@ -1372,6 +1388,8 @@ static int slsi_nan_subscribe_get_nl_params(struct slsi_dev *sdev, struct slsi_h
 			break;
 
 		case NAN_REQ_ATTR_PUBLISH_SDEA:
+			if (hal_req->sdea_service_specific_info_len > SLSI_HAL_NAN_MAX_SDEA_SERVICE_SPEC_INFO_LEN)
+				return -EINVAL;
 			if (slsi_util_nla_get_data(iter, hal_req->sdea_service_specific_info_len,
 						   hal_req->sdea_service_specific_info))
 				return -EINVAL;
@@ -2161,7 +2179,7 @@ exit:
 int slsi_nan_data_iface_create(struct wiphy *wiphy, struct wireless_dev *wdev, const void *data, int len)
 {
 	struct slsi_dev *sdev = SDEV_FROM_WIPHY(wiphy);
-	u8 *iface_name = NULL;
+	u8 iface_name[IFNAMSIZ] = {0};
 	int ret = 0, if_idx, type, tmp, err;
 	struct net_device *dev = slsi_nan_get_netdev(sdev);
 	struct net_device *dev_ndp = NULL;
@@ -2182,12 +2200,13 @@ int slsi_nan_data_iface_create(struct wiphy *wiphy, struct wireless_dev *wdev, c
 			 */
 			if (nla_len(iter) > IFNAMSIZ)
 				return -EINVAL;
-			iface_name = nla_data(iter);
+			memcpy(iface_name, nla_data(iter), nla_len(iter));
+			SLSI_ENSURE_NULL_TERMINATED(iface_name, sizeof(iface_name));
 		} else if (type == NAN_REQ_ATTR_HAL_TRANSACTION_ID)
 			if (slsi_util_nla_get_u16(iter, &transaction_id))
 				return -EINVAL;
 	}
-	if (!iface_name) {
+	if (!iface_name[0]) {
 		SLSI_ERR(sdev, "No NAN data interface name\n");
 		ret = WIFI_HAL_ERROR_INVALID_ARGS;
 		reply_status = SLSI_HAL_NAN_STATUS_INVALID_PARAM;
@@ -2244,7 +2263,7 @@ exit:
 int slsi_nan_data_iface_delete(struct wiphy *wiphy, struct wireless_dev *wdev, const void *data, int len)
 {
 	struct slsi_dev *sdev = SDEV_FROM_WIPHY(wiphy);
-	u8 *iface_name = NULL;
+	u8 iface_name[IFNAMSIZ] = {0};
 	int ret = 0, if_idx, type, tmp;
 	struct net_device *dev = slsi_nan_get_netdev(sdev);
 	struct net_device *dev_ndp = NULL;
@@ -2264,12 +2283,13 @@ int slsi_nan_data_iface_delete(struct wiphy *wiphy, struct wireless_dev *wdev, c
 			 */
 			if (nla_len(iter) > IFNAMSIZ)
 				return -EINVAL;
-			iface_name = nla_data(iter);
+			memcpy(iface_name, nla_data(iter), nla_len(iter));
+			SLSI_ENSURE_NULL_TERMINATED(iface_name, sizeof(iface_name));
 		} else if (type == NAN_REQ_ATTR_HAL_TRANSACTION_ID)
 			if (slsi_util_nla_get_u16(iter, &(transaction_id)))
 				return -EINVAL;
 	}
-	if (!iface_name) {
+	if (!iface_name[0]) {
 		SLSI_ERR(sdev, "No NAN data interface name\n");
 		ret = WIFI_HAL_ERROR_INVALID_ARGS;
 		reply_status = SLSI_HAL_NAN_STATUS_INVALID_PARAM;

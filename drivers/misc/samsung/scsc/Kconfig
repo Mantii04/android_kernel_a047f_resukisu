@@ -198,3 +198,9 @@ config SCSC_MX152_EXT_DUAL_FEM
 	default n
 	---help---
 		Enable dual fem for MX152
+
+config SCSC_WLBT_PTR_PRINT
+	bool "Enable this flag to print memory address used for debugging"
+	default n
+	help
+	Enable this flag to print memory address used for debugging

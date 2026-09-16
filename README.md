@@ -1,6 +1,6 @@
 # ReSukiSU + SuSFS + BBG Kernel for A04s
 
-Source is based on `SC` binary kernel.
+Source is based on `SF` binary kernel.
 
 # Download
 
