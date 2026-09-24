@@ -53,6 +53,10 @@ jobs:
         export PATH="${{ github.workspace }}/toolchain/clang-r596125/bin/:$PATH"
         mkdir -p out
         ./scripts/kconfig/merge_config.sh -O out/ -m arch/arm64/configs/exynos850-a04sxx_defconfig arch/arm64/configs/lesdieuxx.config
+        
+        # --- FIX: Prevent the "+" sign from being appended to the vermagic ---
+        echo "-ravindu644-Diamant" > .scmversion
+        
         # Set the vermagic to match your existing kernel modules
         echo 'CONFIG_LOCALVERSION="-ravindu644-Diamant"' >> out/.config
         echo 'CONFIG_LOCALVERSION_AUTO=n' >> out/.config
@@ -62,7 +66,6 @@ jobs:
     - name: Repack boot.img with AIK-Linux
       run: |
         # Copy the newly compiled kernel into AIK-Linux's split_img folder
-        # The script looks for any file ending in "-kernel", so we name it boot-kernel
         cp out/arch/arm64/boot/Image AIK-Linux/split_img/boot-kernel
         
         # Navigate to AIK-Linux and run the repack script
