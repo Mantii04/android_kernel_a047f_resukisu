@@ -1,4 +1,4 @@
-name: Kernel build CI
+name: Kernel build CI (boot.img via AIK-Linux)
 
 on:
   workflow_dispatch:
@@ -7,9 +7,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - name: Checkout kernel source
+      uses: actions/checkout@v6
       with:
         submodules: recursive
+
+    - name: Clone AIK-Linux from ravindu644
+      run: |
+        git clone --depth 1 --filter=blob:none --sparse https://github.com/ravindu644/android_kernel_a047f_eur.git aik-repo
+        cd aik-repo
+        git sparse-checkout set AIK-Linux
+        cp -r AIK-Linux ../AIK-Linux
 
     - name: Restore cached clang
       id: clang-cache-restore
@@ -29,33 +37,45 @@ jobs:
 
     - name: Save clang to cache
       id: clang-cache-save
-      if: steps.clang-cache-restore.outputs.cache-hit != 'true' # Since clang is rarely get updated we left it cached.
+      if: steps.clang-cache-restore.outputs.cache-hit != 'true'
       uses: actions/cache/save@v6
       with:
         path: toolchain
         key: ${{ runner.os }}-clang
 
-    - name: Create environment
+    - name: Install dependencies
       run: |
-        echo "${{ github.workspace }}/toolchain/clang-r596125/bin/" >> $GITHUB_PATH
         sudo apt update
-        sudo apt-get install -y git-core gnupg flex bc bison build-essential zip curl cpio zlib1g-dev libc6-dev-i386 x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig
+        sudo apt-get install -y git-core gnupg flex bc bison build-essential zip curl cpio zlib1g-dev libc6-dev-i386 x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig lz4 xz-utils openjdk-17-jdk
 
-    - name: Configure and make
+    - name: Configure and build kernel
       run: |
+        export PATH="${{ github.workspace }}/toolchain/clang-r596125/bin/:$PATH"
         mkdir -p out
         ./scripts/kconfig/merge_config.sh -O out/ -m arch/arm64/configs/exynos850-a04sxx_defconfig arch/arm64/configs/lesdieuxx.config
+        # Set the vermagic to match your existing kernel modules
+        echo 'CONFIG_LOCALVERSION="-ravindu644-Diamant"' >> out/.config
+        echo 'CONFIG_LOCALVERSION_AUTO=n' >> out/.config
         make ARCH=arm64 LLVM=1 O=out olddefconfig
         make ARCH=arm64 LLVM=1 O=out -j$(nproc)
 
-    - name: Create AnyKernel3 archive
+    - name: Repack boot.img with AIK-Linux
       run: |
-        pushd AnyKernel3
-        cp ../out/arch/arm64/boot/Image .
-        zip -r9 A04s-AnyKernel3.zip * -x .git README.md *placeholder
-        popd
+        # Copy the newly compiled kernel into AIK-Linux's split_img folder
+        # The script looks for any file ending in "-kernel", so we name it boot-kernel
+        cp out/arch/arm64/boot/Image AIK-Linux/split_img/boot-kernel
+        
+        # Navigate to AIK-Linux and run the repack script
+        cd AIK-Linux
+        chmod +x repackimg.sh
+        ./repackimg.sh
+        
+        # The output is image-new.img; rename it to boot.img
+        mv image-new.img ../boot.img
 
-    - uses: actions/upload-artifact@v7
+    - name: Upload boot.img
+      uses: actions/upload-artifact@v7
       with:
-        path: AnyKernel3/A04s-AnyKernel3.zip
+        name: boot.img
+        path: boot.img
         archive: false
