@@ -1,4 +1,4 @@
-name: Kernel build CI (AnyKernel3)
+name: Kernel build CI (AnyKernel3 + memkernel)
 
 on:
   workflow_dispatch:
@@ -7,9 +7,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - name: Checkout kernel source
+      uses: actions/checkout@v6
       with:
         submodules: recursive
+
+    - name: Clone memkernel from ravindu644 fork
+      run: |
+        git clone --depth 1 --filter=blob:none --sparse \
+          https://github.com/Mantii04/android_kernel_a047f_eur.git memsrc
+        cd memsrc
+        git sparse-checkout set memkernel
+        cp -r memkernel ../memkernel
 
     - name: Restore cached clang
       id: clang-cache-restore
@@ -21,7 +30,8 @@ jobs:
     - name: Clone aosp clang
       if: steps.clang-cache-restore.outputs.cache-hit != 'true'
       run: |
-        git clone --filter=blob:none --no-checkout --sparse --depth=1 https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/ toolchain
+        git clone --filter=blob:none --no-checkout --sparse --depth=1 \
+          https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/ toolchain
         pushd toolchain
         git sparse-checkout set clang-r596125
         git checkout
@@ -38,46 +48,86 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt-get install -y git-core gnupg flex bc bison build-essential zip curl cpio zlib1g-dev libc6-dev-i386 x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig
+        sudo apt-get install -y git-core gnupg flex bc bison build-essential \
+          zip curl cpio zlib1g-dev libc6-dev-i386 x11proto-core-dev \
+          libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc \
+          unzip fontconfig
 
-    - name: Configure and build kernel
+    - name: Configure kernel and enable MODVERSIONS
       run: |
         export PATH="${{ github.workspace }}/toolchain/clang-r596125/bin/:$PATH"
         mkdir -p out
-        ./scripts/kconfig/merge_config.sh -O out/ -m arch/arm64/configs/exynos850-a04sxx_defconfig arch/arm64/configs/lesdieuxx.config
+        ./scripts/kconfig/merge_config.sh -O out/ -m \
+          arch/arm64/configs/exynos850-a04sxx_defconfig \
+          arch/arm64/configs/lesdieuxx.config
 
-        # --- Force the version string directly into the kernel release ---
-        # Overwrite setlocalversion so it outputs ONLY our version suffix.
-        # This bypasses git hash, "+", and dirty-tree detection entirely.
+        # --- Force the version string ---
         echo '#!/bin/sh' > scripts/setlocalversion
         echo 'echo "-ravindu644-Diamant"' >> scripts/setlocalversion
         chmod +x scripts/setlocalversion
 
-        # Make sure CONFIG_LOCALVERSION is empty so it doesn't duplicate our suffix
+        # --- Re-enable MODVERSIONS so memkernel vermagic matches ---
+        sed -i '/CONFIG_MODVERSIONS/d' out/.config
+        echo 'CONFIG_MODVERSIONS=y' >> out/.config
+
+        # --- Keep LOCALVERSION empty (setlocalversion handles it) ---
         sed -i '/CONFIG_LOCALVERSION=/d' out/.config
         sed -i '/CONFIG_LOCALVERSION_AUTO=/d' out/.config
         echo 'CONFIG_LOCALVERSION=""' >> out/.config
         echo '# CONFIG_LOCALVERSION_AUTO is not set' >> out/.config
 
         make ARCH=arm64 LLVM=1 O=out olddefconfig
+
+    - name: Build kernel
+      run: |
+        export PATH="${{ github.workspace }}/toolchain/clang-r596125/bin/:$PATH"
         make ARCH=arm64 LLVM=1 O=out -j$(nproc)
 
-        # --- VERIFICATION STEP ---
         echo "=========================================="
         echo "Kernel release version:"
         cat out/include/config/kernel.release
+        echo "=========================================="
+
+    - name: Build memkernel module
+      run: |
+        export PATH="${{ github.workspace }}/toolchain/clang-r596125/bin/:$PATH"
+
+        # memkernel Makefile uses KDIR and M
+        make -C "${{ github.workspace }}" \
+             O="${{ github.workspace }}/out" \
+             M="${{ github.workspace }}/memkernel" \
+             ARCH=arm64 \
+             LLVM=1 \
+             -j$(nproc) \
+             modules
+
+        # Copy the built .ko into the AnyKernel3 zip structure
+        mkdir -p AnyKernel3/modules/system/lib/modules
+        cp memkernel/*.ko AnyKernel3/modules/system/lib/modules/
+
+        # Verify vermagic of the built module
+        echo "=========================================="
+        echo "memkernel vermagic:"
+        strings memkernel/*.ko | grep vermagic
         echo "=========================================="
 
     - name: Create AnyKernel3 archive
       run: |
         pushd AnyKernel3
         cp ../out/arch/arm64/boot/Image .
-        zip -r9 A04s-AnyKernel3.zip * -x .git README.md *placeholder
+        zip -r9 A04s-AnyKernel3-memkernel.zip * -x .git README.md *placeholder
         popd
 
     - name: Upload AnyKernel3 zip
       uses: actions/upload-artifact@v7
       with:
-        name: AnyKernel3
-        path: AnyKernel3/A04s-AnyKernel3.zip
+        name: AnyKernel3-memkernel
+        path: AnyKernel3/A04s-AnyKernel3-memkernel.zip
+        archive: false
+
+    - name: Upload memkernel.ko separately
+      uses: actions/upload-artifact@v7
+      with:
+        name: memkernel-ko
+        path: memkernel/*.ko
         archive: false
