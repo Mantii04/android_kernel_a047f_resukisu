@@ -45,25 +45,23 @@ jobs:
         export PATH="${{ github.workspace }}/toolchain/clang-r596125/bin/:$PATH"
         mkdir -p out
         ./scripts/kconfig/merge_config.sh -O out/ -m arch/arm64/configs/exynos850-a04sxx_defconfig arch/arm64/configs/lesdieuxx.config
-        
-        # --- THE NUCLEAR OPTION: Completely neutralize the versioning script ---
-        # This script is what appends the git hash ("g9b6f068f") or a "+".
-        # We overwrite it with a script that outputs nothing, so the kernel
-        # will ONLY use what we put in CONFIG_LOCALVERSION.
+
+        # --- Force the version string directly into the kernel release ---
+        # Overwrite setlocalversion so it outputs ONLY our version suffix.
+        # This bypasses git hash, "+", and dirty-tree detection entirely.
         echo '#!/bin/sh' > scripts/setlocalversion
-        echo 'exit 0' >> scripts/setlocalversion
+        echo 'echo "-ravindu644-Diamant"' >> scripts/setlocalversion
         chmod +x scripts/setlocalversion
-        
-        # Force the exact local version in the config
+
+        # Make sure CONFIG_LOCALVERSION is empty so it doesn't duplicate our suffix
         sed -i '/CONFIG_LOCALVERSION=/d' out/.config
         sed -i '/CONFIG_LOCALVERSION_AUTO=/d' out/.config
-        echo 'CONFIG_LOCALVERSION="-ravindu644-Diamant"' >> out/.config
+        echo 'CONFIG_LOCALVERSION=""' >> out/.config
         echo '# CONFIG_LOCALVERSION_AUTO is not set' >> out/.config
-        
+
         make ARCH=arm64 LLVM=1 O=out olddefconfig
-        # We are NOT passing LOCALVERSION="" here anymore!
         make ARCH=arm64 LLVM=1 O=out -j$(nproc)
-        
+
         # --- VERIFICATION STEP ---
         echo "=========================================="
         echo "Kernel release version:"
