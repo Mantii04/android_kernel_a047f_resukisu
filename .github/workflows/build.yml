@@ -42,29 +42,21 @@ jobs:
 
     - name: Configure and build kernel
       env:
-        LOCALVERSION: "-ravindu644-Diamant"
+        LOCALVERSION: ""
       run: |
         export PATH="${{ github.workspace }}/toolchain/clang-r596125/bin/:$PATH"
         mkdir -p out
         ./scripts/kconfig/merge_config.sh -O out/ -m arch/arm64/configs/exynos850-a04sxx_defconfig arch/arm64/configs/lesdieuxx.config
         
-        # --- BULLETPROOF FIX ---
-        # Completely replace setlocalversion with a simple script that only outputs our version.
-        # This prevents GitHub's "dirty" git tree from appending a "+" sign.
-        echo '#!/bin/sh' > scripts/setlocalversion
-        echo 'echo "$LOCALVERSION"' >> scripts/setlocalversion
-        chmod +x scripts/setlocalversion
-        
-        # Remove any pre-existing localversion from config to avoid duplicates
-        sed -i '/CONFIG_LOCALVERSION=/d' out/.config
-        sed -i '/CONFIG_LOCALVERSION_AUTO=/d' out/.config
-        
+        # --- THIS IS THE EXACT CODE THAT WORKED IN THE BOOT.IMG WORKFLOW ---
+        sed -i '/^if \[ "${LOCALVERSION+set}" != "set" \]; then/,/^fi/d' scripts/setlocalversion
+        echo 'CONFIG_LOCALVERSION="-ravindu644-Diamant"' >> out/.config
+        echo 'CONFIG_LOCALVERSION_AUTO=n' >> out/.config
         make ARCH=arm64 LLVM=1 O=out olddefconfig
-        make ARCH=arm64 LLVM=1 O=out -j$(nproc) LOCALVERSION="-ravindu644-Diamant"
+        make ARCH=arm64 LLVM=1 O=out -j$(nproc) LOCALVERSION=""
         
         # --- VERIFICATION STEP ---
-        # This prints the exact version that will be baked into the kernel.
-        # Check this in the Actions log before downloading!
+        # This prints the exact version baked into the kernel. Check this in the Actions log!
         echo "=========================================="
         echo "Kernel release version:"
         cat out/include/config/kernel.release
