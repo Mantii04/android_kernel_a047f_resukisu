@@ -41,22 +41,26 @@ jobs:
         sudo apt-get install -y git-core gnupg flex bc bison build-essential zip curl cpio zlib1g-dev libc6-dev-i386 x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig
 
     - name: Configure and build kernel
-      env:
-        LOCALVERSION: ""
       run: |
         export PATH="${{ github.workspace }}/toolchain/clang-r596125/bin/:$PATH"
         mkdir -p out
         ./scripts/kconfig/merge_config.sh -O out/ -m arch/arm64/configs/exynos850-a04sxx_defconfig arch/arm64/configs/lesdieuxx.config
         
-        # --- THIS IS THE EXACT CODE THAT WORKED IN THE BOOT.IMG WORKFLOW ---
-        sed -i '/^if \[ "${LOCALVERSION+set}" != "set" \]; then/,/^fi/d' scripts/setlocalversion
-        echo 'CONFIG_LOCALVERSION="-ravindu644-Diamant"' >> out/.config
-        echo 'CONFIG_LOCALVERSION_AUTO=n' >> out/.config
+        # --- FIX 1: Force the version in the top-level Makefile ---
+        sed -i 's/^EXTRAVERSION =.*/EXTRAVERSION = -ravindu644-Diamant/' Makefile
+        
+        # --- FIX 2: Force the config to not use a local version and disable auto git hash ---
+        sed -i '/CONFIG_LOCALVERSION=/d' out/.config
+        sed -i '/CONFIG_LOCALVERSION_AUTO=/d' out/.config
+        echo 'CONFIG_LOCALVERSION=""' >> out/.config
+        echo '# CONFIG_LOCALVERSION_AUTO is not set' >> out/.config
+        
         make ARCH=arm64 LLVM=1 O=out olddefconfig
-        make ARCH=arm64 LLVM=1 O=out -j$(nproc) LOCALVERSION=""
+        # Note: We are NOT passing LOCALVERSION="" here anymore!
+        make ARCH=arm64 LLVM=1 O=out -j$(nproc)
         
         # --- VERIFICATION STEP ---
-        # This prints the exact version baked into the kernel. Check this in the Actions log!
+        # This prints the exact version. Check this in the Actions log!
         echo "=========================================="
         echo "Kernel release version:"
         cat out/include/config/kernel.release
